@@ -77,7 +77,7 @@ fn render_cursive_form(title: &str, fields: &[FormField]) -> anyhow::Result<Opti
         let name = field.name.clone();
 
         if field.field_type == FieldType::Choice || field.field_type == FieldType::List {
-            let mut select = SelectView::new().popup();
+            let mut select = SelectView::new();
             if let Some(ref values) = field.values {
                 for v in values {
                     select.add_item_str(v.clone());
@@ -91,7 +91,7 @@ fn render_cursive_form(title: &str, fields: &[FormField]) -> anyhow::Result<Opti
             }
 
             layout.add_child(TextView::new(label));
-            layout.add_child(select.with_name(name.clone()).min_width(40));
+            layout.add_child(select.with_name(name.clone()).min_width(40).min_height(3));
         } else if field.multiline {
             let textarea = TextArea::new()
                 .content(field.default.as_deref().unwrap_or(""));
