@@ -92,9 +92,7 @@ fn main() -> anyhow::Result<()> {
                 Some(m) => {
                     if let Some(ref form_layout) = m.form {
                         // This match has a form — render it via Cursive UI
-                        eprintln!("[debug] Opening form with layout: {}", form_layout.lines().next().unwrap_or("(empty)"));
                         let fields = build_form_fields(m.form_fields.as_ref());
-                        eprintln!("[debug] Built {} form fields", fields.len());
 
                         let renderer = texpand_ui::CursiveFormRenderer;
                         let form_result = renderer.show("texpand", &fields);
