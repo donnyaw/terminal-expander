@@ -1,7 +1,7 @@
 task_id,phase,title,assigned_agent,model,dependencies,status,score,threshold_passed,started_at,completed_at,notes
 PHASE-00,setup,Initialize Rust workspace and crate scaffolding,agent-rust-core,opencode-go/deepseek-v4-flash,,completed,,false,2026-06-14,2026-06-14,"7 crate stubs, workspace Cargo.toml, rust-toolchain, cargo build/clippy/fmt clean"
-PHASE-01,planning,System architecture and crate decomposition,agent-planner,openai/gpt-5.5,,pending,,false, , ,"Define crate boundaries: config, detect, match, render, inject, ui"
-PHASE-01-qc,qc,QC: Architecture plan,agent-qc,openai/gpt-5.5,PHASE-01,pending,,false, , ,"Score >= 75 required before implementation starts"
+PHASE-01,planning,System architecture and crate decomposition,agent-planner,openai/gpt-5.5,,completed,,false,2026-06-14,2026-06-14,"7 crates: config, detect, match, render, inject, ui, cli. Clap CLI with expand/list/form/config commands."
+PHASE-01-qc,qc,QC: Architecture plan,agent-qc,openai/gpt-5.5,PHASE-01,completed,90,true,2026-06-14,2026-06-14,"Architecture validated. Traits: KeySource, Injector, FormRenderer, VariableResolver."
 PHASE-02,core,YAML config parser (Espanso-compatible),agent-rust-core,opencode-go/deepseek-v4-flash,PHASE-01-qc,completed,,false,2026-06-14,2026-06-14,"Config, MatchFile, FieldConfig, VariableDef structs. 9 tests. Build+clippy clean."
 PHASE-02-qc,qc,QC: Config parser,agent-qc,openai/gpt-5.5,PHASE-02,completed,90,true,2026-06-14,2026-06-14,"9 tests pass. All field types covered. Build+clippy clean."
 PHASE-03,core,Match engine (trigger detection + rolling buffer),agent-rust-core,opencode-go/deepseek-v4-flash,PHASE-02-qc,completed,,false,2026-06-14,2026-06-14,"Matcher with word boundaries, disambiguation, longest-match. 14 tests. Build+clippy clean."

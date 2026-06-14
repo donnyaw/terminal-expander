@@ -1,0 +1,39 @@
+matches:
+  # Simple text replacement
+  - trigger: ":hello"
+    replace: "Hello World!"
+
+  # Multi-line replacement
+  - trigger: ":lorem"
+    replace: |
+      Lorem ipsum dolor sit amet,
+      consectetur adipiscing elit.
+
+  # Date variable
+  - trigger: ":date"
+    replace: "{{now}}"
+    vars:
+      - name: now
+        type: date
+        params:
+          format: "%Y-%m-%d"
+
+  # Form with text field
+  - trigger: ":greet"
+    form: |
+      Hey [[name]],
+      Happy Birthday!
+    form_fields:
+      name:
+        placeholder: "Enter your name"
+
+  # Form with choice dropdown
+  - trigger: ":choose"
+    form: "Pick one: [[option]]"
+    form_fields:
+      option:
+        type: choice
+        values:
+          - Option A
+          - Option B
+          - Option C

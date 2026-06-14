@@ -58,6 +58,11 @@ impl Matcher {
         MatchResult { matches: results }
     }
 
+    /// Get a reference to all loaded matches
+    pub fn matches(&self) -> &[MatchFile] {
+        &self.matches
+    }
+
     /// Find the best (longest) match for a given input buffer.
     pub fn find_best(&self, input: &str) -> Option<Match> {
         let result = self.find_all(input);
