@@ -8,9 +8,9 @@
 # Runs the librarian-read → worker → librarian-write → QC sequence.
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
-AGENTS="$PROJECT_ROOT/agents"
-TASKS_CSV="$PROJECT_ROOT/tasks.csv"
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+AGENTS="$PROJECT_ROOT/dev/agents"
+TASKS_CSV="$PROJECT_ROOT/dev/tasks.csv"
 
 run_agent() {
     local task_id="$1"
