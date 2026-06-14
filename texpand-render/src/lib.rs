@@ -4,4 +4,4 @@ pub mod variables;
 
 pub use extension::FormExtension;
 pub use template::Template;
-pub use variables::VariableResolver;
+pub use variables::{VariableEngine, VariableResolver};
