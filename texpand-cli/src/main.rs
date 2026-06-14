@@ -4,10 +4,23 @@ use std::path::PathBuf;
 use texpand_ui::FormRenderer;
 
 #[derive(Parser)]
-#[command(name = "texpand", version, about = "Terminal-native text expander with Espanso-compatible forms")]
+#[command(
+    name = "texpand",
+    version,
+    about = "Terminal-native text expander with Espanso-compatible forms",
+    args_conflicts_with_subcommands = true
+)]
 struct Cli {
+    /// Trigger text to expand (e.g. :hello). Shorthand for `expand`.
+    #[arg(index = 1)]
+    input: Option<String>,
+
+    /// Path to match files directory
+    #[arg(short, long, global = true, default_value = "~/.config/texpand/matches")]
+    config_dir: String,
+
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -15,7 +28,7 @@ enum Commands {
     /// Expand a trigger string and output the result
     Expand {
         /// The input text to search for triggers
-        input: String,
+        input: Option<String>,
 
         /// Path to match files directory
         #[arg(short, long, default_value = "~/.config/texpand/matches")]
@@ -46,8 +59,29 @@ enum Commands {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
+    // Determine the effective config_dir
+    let config_dir = cli.config_dir.clone();
+
+    // If a bare input was given, treat it as expand
+    let cmd = if let Some(input) = cli.input {
+        Some(Commands::Expand {
+            input: Some(input),
+            config_dir,
+        })
+    } else {
+        cli.command
+    };
+
+    match cmd.unwrap_or_else(|| {
+        // No subcommand and no input — show help
+        let _ = Cli::parse_from(["texpand", "--help"]);
+        std::process::exit(0);
+    }) {
         Commands::Expand { input, config_dir } => {
+            let input = input.unwrap_or_else(|| {
+                eprintln!("error: no input provided for expansion");
+                std::process::exit(1);
+            });
             let dir = expand_path(&config_dir);
             let configs = texpand_config::Config::load_dir(&dir)?;
             let matcher = texpand_match::Matcher::from_files(configs);
