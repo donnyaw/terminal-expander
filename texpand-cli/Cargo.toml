@@ -1,0 +1,16 @@
+[package]
+name = "texpand-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+anyhow = { workspace = true }
+log = { workspace = true }
+texpand-config = { path = "../texpand-config" }
+texpand-match = { path = "../texpand-match" }
+texpand-render = { path = "../texpand-render" }
+texpand-detect = { path = "../texpand-detect" }
+texpand-inject = { path = "../texpand-inject" }
+texpand-ui = { path = "../texpand-ui" }

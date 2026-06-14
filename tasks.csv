@@ -1,5 +1,5 @@
 task_id,phase,title,assigned_agent,model,dependencies,status,score,threshold_passed,started_at,completed_at,notes
-PHASE-00,setup,Initialize Rust workspace and crate scaffolding,agent-rust-core,opencode-go/deepseek-v4-flash,,pending,,false, , ,"Run cargo init --lib, set up workspace Cargo.toml with crate stubs"
+PHASE-00,setup,Initialize Rust workspace and crate scaffolding,agent-rust-core,opencode-go/deepseek-v4-flash,,completed,,false,2026-06-14,2026-06-14,"7 crate stubs, workspace Cargo.toml, rust-toolchain, cargo build/clippy/fmt clean"
 PHASE-01,planning,System architecture and crate decomposition,agent-planner,openai/gpt-5.5,,pending,,false, , ,"Define crate boundaries: config, detect, match, render, inject, ui"
 PHASE-01-qc,qc,QC: Architecture plan,agent-qc,openai/gpt-5.5,PHASE-01,pending,,false, , ,"Score >= 75 required before implementation starts"
 PHASE-02,core,YAML config parser (Espanso-compatible),agent-rust-core,opencode-go/deepseek-v4-flash,PHASE-01-qc,pending,,false, , ,"serde_norway, match/file-based config loading"

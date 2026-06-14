@@ -1,0 +1,15 @@
+[package]
+name = "texpand-render"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_norway = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+regex = { workspace = true }
+texpand-config = { path = "../texpand-config" }
+texpand-match = { path = "../texpand-match" }

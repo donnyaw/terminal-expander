@@ -1,0 +1,14 @@
+[package]
+name = "texpand-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+cursive = "0.21"
+texpand-config = { path = "../texpand-config" }
+texpand-render = { path = "../texpand-render" }
