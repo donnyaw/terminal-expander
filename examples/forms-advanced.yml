@@ -197,6 +197,36 @@ matches:
   - trigger: ":emoji"
     replace: "🎉"
 
+  # Find command builder
+  - trigger: ":findx"
+    replace: "find {{path}} {{type}} -name '*.[[ext]]' -exec {{exec}} {} +"
+    vars:
+      - name: form
+        type: form
+        params:
+          layout: |
+            Search Path: [[path]]
+            File Type: [[type]]
+            Extension: [[ext]]
+            Action: [[exec]]
+          fields:
+            path:
+              default: "."
+              placeholder: "e.g. /home or ."
+            type:
+              type: choice
+              values:
+                - ""
+                - "-type f"
+                - "-type d"
+                - "-type l"
+            ext:
+              default: "sh"
+              placeholder: "file extension"
+            exec:
+              default: "ls -lh"
+              placeholder: "e.g. rm or chmod"
+
   # Cascading dropdown — selecting parent changes child options
   - trigger: ":cascade"
     replace: "Selected {{cat}}: {{item}}"
