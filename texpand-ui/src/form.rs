@@ -80,7 +80,13 @@ fn render_cursive_form(title: &str, fields: &[FormField]) -> anyhow::Result<Opti
     let mut layout = LinearLayout::vertical();
 
     for field in fields {
-        let label = field.label.clone();
+        // Visually distinguish dependent fields with > prefix and indent
+        let is_dependent = field.depends_on.is_some();
+        let label = if is_dependent {
+            format!("  > {}", field.label.trim())
+        } else {
+            field.label.clone()
+        };
         let name = field.name.clone();
 
         if field.field_type == FieldType::Choice || field.field_type == FieldType::List {
