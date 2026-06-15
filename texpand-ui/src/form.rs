@@ -214,6 +214,12 @@ fn render_cursive_form(title: &str, fields: &[FormField]) -> anyhow::Result<Opti
 
     siv.run();
 
+    // Restore terminal state after Cursive exits
+    let _ = std::process::Command::new("stty")
+        .args(["sane"])
+        .status();
+    println!();
+
     let result_ref = result.lock().unwrap().take();
     Ok(result_ref)
 }
