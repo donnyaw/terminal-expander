@@ -61,12 +61,20 @@ impl Config {
 
     pub fn load_dir(dir: &PathBuf) -> Result<Vec<(PathBuf, Self)>, super::ConfigError> {
         let mut results = Vec::new();
+        Self::load_dir_recursive(dir, &mut results);
+        results.sort_by_key(|(path, _)| path.clone());
+        Ok(results)
+    }
+
+    fn load_dir_recursive(dir: &PathBuf, results: &mut Vec<(PathBuf, Self)>) {
         if let Ok(entries) = std::fs::read_dir(dir) {
             let mut entries: Vec<_> = entries.flatten().collect();
             entries.sort_by_key(|e| e.file_name());
             for entry in entries {
                 let path = entry.path();
-                if path.extension().is_some_and(|e| e == "yml" || e == "yaml") {
+                if path.is_dir() {
+                    Self::load_dir_recursive(&path, results);
+                } else if path.extension().is_some_and(|e| e == "yml" || e == "yaml") {
                     match Self::load(&path) {
                         Ok(config) => results.push((path, config)),
                         Err(e) => log::warn!("Skipping {}: {}", path.display(), e),
@@ -74,17 +82,14 @@ impl Config {
                 }
             }
         }
-        Ok(results)
     }
-
 }
 
 impl std::str::FromStr for Config {
     type Err = super::ConfigError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_norway::from_str(s)
-            .map_err(|e| super::ConfigError::Parse(e.to_string()))
+        serde_norway::from_str(s).map_err(|e| super::ConfigError::Parse(e.to_string()))
     }
 }
 
@@ -96,13 +101,13 @@ mod tests {
     fn test_simple_text_replacement() {
         let yaml = r#"
 matches:
-  - trigger: ":espanso"
-    replace: "Hi there!"
+    - trigger: ":example"
+      replace: "Hi there!"
 "#;
         let config = yaml.parse::<Config>().unwrap();
         assert_eq!(config.matches.len(), 1);
         let m = &config.matches[0];
-        assert_eq!(m.trigger.as_deref(), Some(":espanso"));
+        assert_eq!(m.trigger.as_deref(), Some(":example"));
         assert_eq!(m.replace.as_deref(), Some("Hi there!"));
     }
 
@@ -221,5 +226,66 @@ matches:
     fn test_invalid_yaml() {
         let yaml = "matches: [broken";
         assert!(yaml.parse::<Config>().is_err());
+    }
+
+    #[test]
+    fn test_load_dir_recursively_loads_yaml_files() {
+        let root = std::env::temp_dir().join(format!(
+            "texpand-config-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let nested = root.join("linux").join("ubuntu").join("apt");
+        std::fs::create_dir_all(&nested).unwrap();
+
+        std::fs::write(
+            root.join("01-root.yml"),
+            r#"matches:
+  - trigger: ":test-root"
+    replace: "root level works"
+"#,
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("linux").join("02-find.yaml"),
+            r#"matches:
+  - trigger: ":test-find"
+    replace: "linux/find level works"
+"#,
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("linux").join("ubuntu").join("03-aliases.yml"),
+            r#"matches:
+  - trigger: ":test-aliases"
+    replace: "linux/ubuntu/aliases level works"
+"#,
+        )
+        .unwrap();
+        std::fs::write(
+            nested.join("04-apt.yml"),
+            r#"matches:
+  - trigger: ":test-apt"
+    replace: "linux/ubuntu/apt level works"
+"#,
+        )
+        .unwrap();
+        std::fs::write(root.join("ignore.txt"), "matches: []").unwrap();
+
+        let configs = Config::load_dir(&root).unwrap();
+        let triggers: Vec<_> = configs
+            .iter()
+            .map(|(_, config)| config.matches[0].trigger.as_deref().unwrap())
+            .collect();
+
+        assert_eq!(
+            triggers,
+            vec![":test-root", ":test-find", ":test-aliases", ":test-apt"]
+        );
+
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
