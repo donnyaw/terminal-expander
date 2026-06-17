@@ -21,11 +21,7 @@ impl TriggerRecord {
         let mut seen_triggers: HashMap<String, u32> = HashMap::new();
 
         for (path, config) in configs {
-            let source = path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("unknown")
-                .to_string();
+            let source = path.to_string_lossy().to_string();
 
             for m in &config.matches {
                 for trigger in m.triggers() {
