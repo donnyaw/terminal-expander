@@ -15,6 +15,7 @@ pub enum FieldType {
 pub struct FormField {
     pub name: String,
     pub label: String,
+    pub section: Option<String>,
     pub field_type: FieldType,
     pub default: Option<String>,
     pub placeholder: Option<String>,
@@ -68,6 +69,45 @@ fn filter_options(options: &[String], query: &str) -> Vec<String> {
         .collect()
 }
 
+fn clean_label(label: &str) -> String {
+    label
+        .trim()
+        .trim_start_matches(|c: char| matches!(c, '-' | '*' | '|' | '║' | '│' | ' '))
+        .trim()
+        .trim_end_matches(|c: char| matches!(c, ':' | '|' | '║' | '│' | ' '))
+        .trim()
+        .to_string()
+}
+
+fn display_label(label: &str, searchable: bool) -> String {
+    let base = clean_label(label);
+    if searchable {
+        if base.contains("/ search") || base.contains("/search") {
+            format!("  - {}:", base)
+        } else {
+            format!("  - {} (/ search):", base)
+        }
+    } else {
+        format!("  - {}:", base)
+    }
+}
+
+fn indented_view<V: cursive::View + 'static>(view: V) -> cursive::views::LinearLayout {
+    cursive::views::LinearLayout::horizontal()
+        .child(cursive::views::TextView::new("   "))
+        .child(view)
+}
+
+fn add_field_block<V: cursive::View + 'static>(
+    layout: &mut cursive::views::LinearLayout,
+    label: String,
+    view: V,
+) {
+    layout.add_child(cursive::views::TextView::new(""));
+    layout.add_child(cursive::views::TextView::new(label));
+    layout.add_child(indented_view(view));
+}
+
 fn populate_select(
     select: &mut cursive::views::SelectView<String>,
     values: &[String],
@@ -102,14 +142,29 @@ fn select_by_value(s: &mut cursive::Cursive, field_name: &str, value: &str) {
 fn refresh_search_results(
     s: &mut cursive::Cursive,
     results_name: &str,
+    count_name: &str,
     options: &[String],
     query: &str,
 ) {
     let filtered = filter_options(options, query);
+    let count_text = if filtered.len() == 1 {
+        "1 match".to_string()
+    } else {
+        format!("{} matches", filtered.len())
+    };
+
+    let _ = s.call_on_name(count_name, |view: &mut cursive::views::TextView| {
+        view.set_content(count_text);
+    });
+
     let _ = s.call_on_name(
         results_name,
         |view: &mut cursive::views::SelectView<String>| {
             view.clear();
+            if filtered.is_empty() {
+                view.add_item_str("No matches".to_string());
+                return;
+            }
             for value in filtered {
                 view.add_item_str(value);
             }
@@ -137,13 +192,21 @@ fn open_dropdown_search(
         .unwrap_or_default();
 
     let results_name = format!("{}_search_results", field_name);
+    let count_name = format!("{}_search_count", field_name);
     let query_name = format!("{}_search_query", field_name);
 
     let results_name_for_edit = results_name.clone();
+    let count_name_for_edit = count_name.clone();
     let options_for_edit = options.clone();
     let search_input = EditView::new()
         .on_edit(move |s, query, _| {
-            refresh_search_results(s, &results_name_for_edit, &options_for_edit, query);
+            refresh_search_results(
+                s,
+                &results_name_for_edit,
+                &count_name_for_edit,
+                &options_for_edit,
+                query,
+            );
         })
         .with_name(query_name)
         .fixed_width(32);
@@ -151,6 +214,9 @@ fn open_dropdown_search(
     let field_name_for_submit = field_name.clone();
     let results = SelectView::<String>::new()
         .on_submit(move |s, value| {
+            if value == "No matches" {
+                return;
+            }
             select_by_value(s, &field_name_for_submit, value);
             s.pop_layer();
         })
@@ -159,16 +225,20 @@ fn open_dropdown_search(
 
     let layout = LinearLayout::vertical()
         .child(TextView::new(format!(
-            "Search {} (substring)",
-            field_label.trim_end_matches(':')
+            "Query: {}",
+            clean_label(&field_label)
         )))
         .child(search_input)
-        .child(results);
+        .child(TextView::new("0 matches").with_name(count_name))
+        .child(results)
+        .child(TextView::new("Enter select | Esc close"));
 
     let results_name_for_initial = format!("{}_search_results", field_name);
+    let count_name_for_initial = format!("{}_search_count", field_name);
+    let query_name_for_focus = format!("{}_search_query", field_name);
     let dialog = OnEventView::new(
         Dialog::around(layout)
-            .title(format!("Search {}", field_label.trim_end_matches(':')))
+            .title(format!("Search: {}", clean_label(&field_label)))
             .button("Close", |s| {
                 s.pop_layer();
             }),
@@ -178,7 +248,14 @@ fn open_dropdown_search(
     });
 
     s.add_layer(dialog);
-    refresh_search_results(s, &results_name_for_initial, &options, "");
+    let _ = s.focus_name(&query_name_for_focus);
+    refresh_search_results(
+        s,
+        &results_name_for_initial,
+        &count_name_for_initial,
+        &options,
+        "",
+    );
 }
 
 fn render_cursive_form(title: &str, fields: &[FormField]) -> anyhow::Result<Option<FormResult>> {
@@ -216,10 +293,26 @@ fn render_cursive_form(title: &str, fields: &[FormField]) -> anyhow::Result<Opti
         Arc::new(Mutex::new(HashMap::new()));
 
     let mut layout = LinearLayout::vertical();
+    layout.add_child(TextView::new(
+        "Tab next | / search dropdown | Enter select | Esc cancel",
+    ));
+    layout.add_child(TextView::new(
+        "-----------------------------------------------",
+    ));
+
+    let mut current_section: Option<String> = None;
 
     for field in fields {
         let label = field.label.clone();
         let name = field.name.clone();
+
+        if field.section != current_section {
+            if let Some(section) = &field.section {
+                layout.add_child(TextView::new(""));
+                layout.add_child(TextView::new(section.clone()));
+            }
+            current_section = field.section.clone();
+        }
 
         if field.field_type == FieldType::Choice || field.field_type == FieldType::List {
             let is_list = field.field_type == FieldType::List;
@@ -259,7 +352,6 @@ fn render_cursive_form(title: &str, fields: &[FormField]) -> anyhow::Result<Opti
 
             let field_name = name.clone();
             let field_label = label.clone();
-            layout.add_child(TextView::new(label));
             let option_store_for_search = option_store.clone();
             let searchable =
                 OnEventView::new(select.with_name(name.clone()).min_width(40).min_height(3))
@@ -271,7 +363,7 @@ fn render_cursive_form(title: &str, fields: &[FormField]) -> anyhow::Result<Opti
                             option_store_for_search.clone(),
                         );
                     });
-            layout.add_child(searchable);
+            add_field_block(&mut layout, display_label(&label, true), searchable);
 
             if let Some(ref dep_name) = field.depends_on {
                 if let Some(ref dep_map) = field.depends_map {
@@ -291,13 +383,19 @@ fn render_cursive_form(title: &str, fields: &[FormField]) -> anyhow::Result<Opti
                 Checkbox::new()
             };
 
-            layout.add_child(TextView::new(label));
-            layout.add_child(checkbox.with_name(name.clone()));
+            add_field_block(
+                &mut layout,
+                display_label(&label, false),
+                checkbox.with_name(name.clone()),
+            );
         } else if field.multiline {
             let textarea = TextArea::new().content(field.default.as_deref().unwrap_or(""));
 
-            layout.add_child(TextView::new(label));
-            layout.add_child(textarea.with_name(name.clone()).min_width(50).min_height(5));
+            add_field_block(
+                &mut layout,
+                display_label(&label, false),
+                textarea.with_name(name.clone()).min_width(50).min_height(5),
+            );
         } else {
             let edit = EditView::new().content(
                 field
@@ -312,8 +410,11 @@ fn render_cursive_form(title: &str, fields: &[FormField]) -> anyhow::Result<Opti
                 edit
             };
 
-            layout.add_child(TextView::new(label));
-            layout.add_child(edit.with_name(name.clone()).min_width(50));
+            add_field_block(
+                &mut layout,
+                display_label(&label, false),
+                edit.with_name(name.clone()).min_width(50),
+            );
         }
     }
 

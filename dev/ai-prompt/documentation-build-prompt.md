@@ -18,7 +18,7 @@ Primary branch/repo:
 donnyaw/cli-expander on main
 ```
 
-Do not work in the wizard-form repo unless explicitly asked. The current focus is the Cursive TUI version in `cli-expander`.
+Only the `cli-expander` repo is active. The previous `texpand` repo has been archived.
 
 ## Product Positioning
 
@@ -91,6 +91,8 @@ Document these as working or available features:
 12. Cascading/dependent dropdowns
 13. Config loading from `~/.config/cli-expander/matches/*.yml`
 14. Example command-builder packs for Linux `find`
+15. Searchable dropdowns with `/` keybinding (substring filter)
+16. Mixed text-after-dropdown form layouts
 
 ## Current Form Field Types
 

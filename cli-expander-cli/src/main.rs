@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
+use cli_expander_ui::FormRenderer;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use cli_expander_ui::FormRenderer;
 
 #[derive(Parser)]
 #[command(
@@ -110,7 +110,7 @@ fn main() -> anyhow::Result<()> {
                                     &m.form_fields.as_ref().cloned().unwrap_or_default(),
                                     &result.values,
                                 );
-                                println!("{}", output);
+                                println!("{}", normalize_command_output(&output));
                             }
                             Ok(None) => {
                                 eprintln!("[debug] Form cancelled by user");
@@ -123,8 +123,11 @@ fn main() -> anyhow::Result<()> {
                                     &m.form_fields.as_ref().cloned().unwrap_or_default(),
                                     &result.values,
                                 );
-                                eprintln!("warning: form unavailable ({}); using default form values", e);
-                                println!("{}", output);
+                                eprintln!(
+                                    "warning: form unavailable ({}); using default form values",
+                                    e
+                                );
+                                println!("{}", normalize_command_output(&output));
                             }
                         }
                     } else if let Some(ref replace) = m.replace {
@@ -175,7 +178,7 @@ fn main() -> anyhow::Result<()> {
 
                         let template = cli_expander_render::Template::new(replace);
                         let output = template.render(&vars);
-                        println!("{}", output);
+                        println!("{}", normalize_command_output(&output));
                     }
                 }
                 None => {
@@ -207,6 +210,7 @@ fn main() -> anyhow::Result<()> {
             let fields = vec![cli_expander_ui::FormField {
                 name: "input".to_string(),
                 label: "Input:".to_string(),
+                section: None,
                 field_type: cli_expander_ui::FieldType::Text,
                 default: None,
                 placeholder: Some("Type here...".to_string()),
@@ -313,7 +317,9 @@ fn parse_depends_map(
     Some(result)
 }
 
-fn build_fields_from_form_var(var: &cli_expander_config::VariableDef) -> Vec<cli_expander_ui::FormField> {
+fn build_fields_from_form_var(
+    var: &cli_expander_config::VariableDef,
+) -> Vec<cli_expander_ui::FormField> {
     use serde_norway::Value;
     use std::collections::HashMap;
 
@@ -328,10 +334,26 @@ fn build_fields_from_form_var(var: &cli_expander_config::VariableDef) -> Vec<cli
         None => return result,
     };
 
-    // Extract field names from layout [[field]] patterns with labels
-    let mut field_meta: Vec<(String, String)> = Vec::new();
+    // Extract field names from layout [[field]] patterns with labels and section headings.
+    let mut field_meta: Vec<(String, String, Option<String>)> = Vec::new();
+    let mut current_section: Option<String> = None;
     for line in layout.lines() {
         let trimmed = line.trim();
+        if !trimmed.contains("[[") {
+            let section = trimmed
+                .trim_matches(|c: char| {
+                    matches!(
+                        c,
+                        '-' | '=' | '─' | '═' | '╔' | '╗' | '╚' | '╝' | '║' | '│' | ' '
+                    )
+                })
+                .trim();
+            if !section.is_empty() {
+                current_section = Some(section.to_string());
+            }
+            continue;
+        }
+
         let mut search_from = 0;
         while let Some(rel_start) = trimmed[search_from..].find("[[") {
             let start = search_from + rel_start;
@@ -351,7 +373,7 @@ fn build_fields_from_form_var(var: &cli_expander_config::VariableDef) -> Vec<cli
                     } else {
                         format!("{}:", flabel)
                     };
-                    field_meta.push((fname, label));
+                    field_meta.push((fname, label, current_section.clone()));
                 }
                 search_from = end + 2;
             } else {
@@ -378,7 +400,7 @@ fn build_fields_from_form_var(var: &cli_expander_config::VariableDef) -> Vec<cli
         }
     }
 
-    for (fname, label) in field_meta {
+    for (fname, label, section) in field_meta {
         let mut field_type = cli_expander_ui::FieldType::Text;
         let mut multiline = false;
         let mut default = None;
@@ -390,7 +412,9 @@ fn build_fields_from_form_var(var: &cli_expander_config::VariableDef) -> Vec<cli
                 match t {
                     "choice" => field_type = cli_expander_ui::FieldType::Choice,
                     "list" => field_type = cli_expander_ui::FieldType::List,
-                    "checkbox" | "bool" | "boolean" => field_type = cli_expander_ui::FieldType::Checkbox,
+                    "checkbox" | "bool" | "boolean" => {
+                        field_type = cli_expander_ui::FieldType::Checkbox
+                    }
                     "password" | "secret" => field_type = cli_expander_ui::FieldType::Password,
                     _ => {}
                 }
@@ -433,6 +457,7 @@ fn build_fields_from_form_var(var: &cli_expander_config::VariableDef) -> Vec<cli
         result.push(cli_expander_ui::FormField {
             name: fname,
             label,
+            section,
             field_type,
             default,
             placeholder,
@@ -478,6 +503,7 @@ fn build_form_fields(
             result.push(cli_expander_ui::FormField {
                 name: name.clone(),
                 label: format!("{}:", name),
+                section: None,
                 field_type,
                 default: config.default.clone(),
                 placeholder: config.placeholder.clone(),
@@ -491,9 +517,62 @@ fn build_form_fields(
     result
 }
 
+fn normalize_command_output(output: &str) -> String {
+    let trimmed = output.trim();
+    if !trimmed.starts_with("find ") || trimmed.contains('\n') {
+        return output.to_string();
+    }
+
+    let mut normalized = String::new();
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
+    let mut previous_space = false;
+
+    for ch in trimmed.chars() {
+        if escaped {
+            normalized.push(ch);
+            escaped = false;
+            previous_space = false;
+            continue;
+        }
+
+        if ch == '\\' {
+            normalized.push(ch);
+            escaped = true;
+            previous_space = false;
+            continue;
+        }
+
+        if let Some(q) = quote {
+            normalized.push(ch);
+            if ch == q {
+                quote = None;
+            }
+            previous_space = false;
+            continue;
+        }
+
+        if ch == '\'' || ch == '"' {
+            quote = Some(ch);
+            normalized.push(ch);
+            previous_space = false;
+        } else if ch.is_whitespace() {
+            if !previous_space {
+                normalized.push(' ');
+                previous_space = true;
+            }
+        } else {
+            normalized.push(ch);
+            previous_space = false;
+        }
+    }
+
+    normalized
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{build_fields_from_form_var, build_form_fields};
+    use super::{build_fields_from_form_var, build_form_fields, normalize_command_output};
 
     #[test]
     fn test_build_form_fields_keeps_text_inputs_in_mixed_forms() {
@@ -534,9 +613,12 @@ name: form
 type: form
 params:
   layout: |
-    Title: [[title]]
-    Category: [[category]]
-    Item: [[item]]
+    Metadata
+      - Title: [[title]]
+
+    Search Criteria
+      - Category: [[category]]
+      - Item: [[item]]
   fields:
     title:
       placeholder: "Enter a title"
@@ -562,9 +644,29 @@ params:
 
         assert_eq!(fields.len(), 3);
         assert_eq!(fields[0].name, "title");
+        assert_eq!(fields[0].section.as_deref(), Some("Metadata"));
         assert_eq!(fields[0].field_type, cli_expander_ui::FieldType::Text);
         assert_eq!(fields[1].field_type, cli_expander_ui::FieldType::Choice);
+        assert_eq!(fields[1].section.as_deref(), Some("Search Criteria"));
         assert_eq!(fields[2].depends_on.as_deref(), Some("category"));
         assert!(fields[2].depends_map.is_some());
+    }
+
+    #[test]
+    fn test_normalize_command_output_collapses_unquoted_find_spacing() {
+        let output = "find . -name 'README*'  -print";
+        assert_eq!(
+            normalize_command_output(output),
+            "find . -name 'README*' -print"
+        );
+    }
+
+    #[test]
+    fn test_normalize_command_output_preserves_quoted_spacing() {
+        let output = "find . -name 'my  file.txt'  -print";
+        assert_eq!(
+            normalize_command_output(output),
+            "find . -name 'my  file.txt' -print"
+        );
     }
 }
