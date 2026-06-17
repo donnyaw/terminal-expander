@@ -490,3 +490,81 @@ fn build_form_fields(
     }
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{build_fields_from_form_var, build_form_fields};
+
+    #[test]
+    fn test_build_form_fields_keeps_text_inputs_in_mixed_forms() {
+        let fields: std::collections::HashMap<String, cli_expander_config::FieldConfig> =
+            serde_norway::from_str(
+                r#"
+title:
+  default: "My ticket"
+  placeholder: "Enter title"
+item:
+  type: choice
+  depends_on: category
+  values:
+    Fruits:
+      - Apple
+      - Banana
+"#,
+            )
+            .unwrap();
+
+        let built = build_form_fields(Some(&fields));
+        assert_eq!(built.len(), 2);
+
+        let title = built.iter().find(|field| field.name == "title").unwrap();
+        assert_eq!(title.field_type, cli_expander_ui::FieldType::Text);
+        assert_eq!(title.default.as_deref(), Some("My ticket"));
+
+        let item = built.iter().find(|field| field.name == "item").unwrap();
+        assert_eq!(item.field_type, cli_expander_ui::FieldType::Choice);
+        assert_eq!(item.depends_on.as_deref(), Some("category"));
+        assert!(item.depends_map.is_some());
+    }
+
+    #[test]
+    fn test_build_fields_from_form_var_supports_text_and_cascade_fields() {
+        let yaml = r#"
+name: form
+type: form
+params:
+  layout: |
+    Title: [[title]]
+    Category: [[category]]
+    Item: [[item]]
+  fields:
+    title:
+      placeholder: "Enter a title"
+    category:
+      type: choice
+      values:
+        - Fruits
+        - Animals
+    item:
+      type: choice
+      depends_on: category
+      values:
+        Fruits:
+          - Apple
+          - Banana
+        Animals:
+          - Cat
+          - Dog
+"#;
+
+        let var: cli_expander_config::VariableDef = serde_norway::from_str(yaml).unwrap();
+        let fields = build_fields_from_form_var(&var);
+
+        assert_eq!(fields.len(), 3);
+        assert_eq!(fields[0].name, "title");
+        assert_eq!(fields[0].field_type, cli_expander_ui::FieldType::Text);
+        assert_eq!(fields[1].field_type, cli_expander_ui::FieldType::Choice);
+        assert_eq!(fields[2].depends_on.as_deref(), Some("category"));
+        assert!(fields[2].depends_map.is_some());
+    }
+}

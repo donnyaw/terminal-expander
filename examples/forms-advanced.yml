@@ -412,6 +412,77 @@ matches:
                 Animals: [Cat, Dog, Elephant, Fox]
                 Colors: [Red, Green, Blue, Yellow]
 
+  # Cascade form mixed with normal text inputs
+  - trigger: ":cascade-mixed"
+    replace: |
+      Title: {{title}}
+      Selected {{cat}}: {{item}}
+      Notes: {{notes}}
+    vars:
+      - name: form
+        type: form
+        params:
+          layout: |
+            Title: [[title]]
+            Category: [[cat]]
+            Item: [[item]]
+            Notes: [[notes]]
+          fields:
+            title:
+              placeholder: "Enter a short title"
+            cat:
+              type: choice
+              values:
+                - Fruits
+                - Animals
+                - Colors
+            item:
+              type: choice
+              depends_on: cat
+              values:
+                Fruits:
+                  - Apple
+                  - Banana
+                  - Cherry
+                Animals:
+                  - Cat
+                  - Dog
+                  - Fox
+                Colors:
+                  - Red
+                  - Green
+                  - Blue
+            notes:
+              multiline: true
+              placeholder: "Optional notes"
+
+  # Dropdown first, then text inputs after it
+  - trigger: ":afterdropdown"
+    replace: |
+      Category: {{category}}
+      Summary: {{summary}}
+      Details: {{details}}
+    vars:
+      - name: form
+        type: form
+        params:
+          layout: |
+            Category: [[category]]
+            Summary: [[summary]]
+            Details: [[details]]
+          fields:
+            category:
+              type: choice
+              values:
+                - Alpha
+                - Beta
+                - Gamma
+            summary:
+              placeholder: "Short summary after the dropdown"
+            details:
+              multiline: true
+              placeholder: "Longer notes after the dropdown"
+
   # Non-cascading version for comparison
   - trigger: ":cascade2"
     replace: "Selected {{cat}}: {{item}}"
