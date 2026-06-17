@@ -7,8 +7,10 @@ license.workspace = true
 [dependencies]
 serde = { workspace = true }
 serde_norway = { workspace = true }
+serde_json = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }
 regex = { workspace = true }
+csv = { workspace = true }
 notify = "7"

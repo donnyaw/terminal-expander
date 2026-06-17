@@ -1,4 +1,7 @@
 use clap::{Parser, Subcommand};
+use cli_expander_config::TriggerRecord;
+use cli_expander_config::{records_to_csv, records_to_json};
+use cli_expander_config::{read_csv_file, write_csv_file, merge_records};
 use cli_expander_ui::FormRenderer;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -42,6 +45,53 @@ enum Commands {
 
     /// List all available triggers
     List {
+        /// Path to match files directory
+        #[arg(short, long, default_value = "~/.config/cli-expander/matches")]
+        config_dir: String,
+
+        /// Output in CSV format (pipe to fzf)
+        #[arg(long)]
+        csv: bool,
+
+        /// Output in JSON format
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Generate triggers.csv from match files
+    GenerateCsv {
+        /// Path to match files directory
+        #[arg(short, long, default_value = "~/.config/cli-expander/matches")]
+        config_dir: String,
+
+        /// Output path for CSV (default: ~/.config/cli-expander/triggers.csv)
+        #[arg(short, long)]
+        output: Option<String>,
+
+        /// Overwrite existing CSV instead of merging
+        #[arg(long)]
+        force: bool,
+    },
+
+    /// Search triggers by keyword
+    Search {
+        /// Search query
+        query: String,
+
+        /// Path to match files directory
+        #[arg(short, long, default_value = "~/.config/cli-expander/matches")]
+        config_dir: String,
+
+        /// Output in CSV format
+        #[arg(long)]
+        csv: bool,
+    },
+
+    /// Show details for a specific trigger
+    Details {
+        /// Trigger name (e.g. :findx)
+        trigger: String,
+
         /// Path to match files directory
         #[arg(short, long, default_value = "~/.config/cli-expander/matches")]
         config_dir: String,
@@ -188,21 +238,121 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::List { config_dir } => {
+        Commands::List {
+            config_dir,
+            csv,
+            json,
+        } => {
             let dir = expand_path(&config_dir);
             let configs = cli_expander_config::Config::load_dir(&dir)?;
-            let matcher = cli_expander_match::Matcher::from_files(configs);
+            let records = TriggerRecord::from_configs(&configs);
 
-            println!("Available triggers:");
-            println!("{:<20} {:<40} Type", "Trigger", "Replace/Form");
-            println!("{:-<20} {:-<40} {:-<10}", "-", "-", "-");
+            if csv {
+                println!("{}", records_to_csv(&records));
+            } else if json {
+                println!("{}", records_to_json(&records));
+            } else {
+                println!("Available triggers:");
+                println!("{:<25} {:<55} {:<10} {}", "Trigger", "Description", "Type", "Category");
+                println!("{:-<25} {:-<55} {:-<10} {:-<15}", "", "", "", "");
 
-            for m in matcher.matches() {
-                for trigger in m.triggers() {
-                    let replace = m.replace.as_deref().unwrap_or("");
-                    let type_str = if m.has_form() { "form" } else { "text" };
-                    println!("{:<20} {:<40} {}", trigger, truncate(replace, 37), type_str);
+                for r in &records {
+                    let desc = if r.description.len() > 52 {
+                        format!("{}...", &r.description[..49])
+                    } else {
+                        r.description.clone()
+                    };
+                    println!(
+                        "{:<25} {:<55} {:<10} {}",
+                        r.trigger, desc, r.trigger_type, r.category
+                    );
                 }
+            }
+        }
+
+        Commands::GenerateCsv {
+            config_dir,
+            output,
+            force,
+        } => {
+            let dir = expand_path(&config_dir);
+            let configs = cli_expander_config::Config::load_dir(&dir)?;
+            let auto_records = TriggerRecord::from_configs(&configs);
+
+            let out_path = output.map(|p| PathBuf::from(p)).unwrap_or_else(|| {
+                let home = std::env::var("HOME").unwrap_or_default();
+                PathBuf::from(home).join(".config/cli-expander/triggers.csv")
+            });
+
+            if force {
+                write_csv_file(&auto_records, &out_path)?;
+                eprintln!("Wrote {} triggers to {}", auto_records.len(), out_path.display());
+            } else {
+                let existing = read_csv_file(&out_path).unwrap_or_default();
+                let merged = merge_records(auto_records, existing);
+                write_csv_file(&merged, &out_path)?;
+                eprintln!(
+                    "Merged {} triggers into {} (auto + manual)",
+                    merged.len(),
+                    out_path.display()
+                );
+            }
+        }
+
+        Commands::Search {
+            query,
+            config_dir,
+            csv,
+        } => {
+            let dir = expand_path(&config_dir);
+            let configs = cli_expander_config::Config::load_dir(&dir)?;
+            let records = TriggerRecord::from_configs(&configs);
+            let q = query.to_lowercase();
+
+            let matched: Vec<&TriggerRecord> = records
+                .iter()
+                .filter(|r| {
+                    r.trigger.to_lowercase().contains(&q)
+                        || r.description.to_lowercase().contains(&q)
+                        || r.category.to_lowercase().contains(&q)
+                        || r.tags.to_lowercase().contains(&q)
+                })
+                .collect();
+
+            if csv {
+                let csv_records: Vec<TriggerRecord> =
+                    matched.iter().map(|r| (*r).clone()).collect();
+                println!("{}", records_to_csv(&csv_records));
+            } else {
+                if matched.is_empty() {
+                    eprintln!("No triggers matching '{}'", query);
+                } else {
+                    println!("Triggers matching '{}':", query);
+                    for r in &matched {
+                        println!("  {:<25} {}", r.trigger, r.description);
+                    }
+                }
+            }
+        }
+
+        Commands::Details {
+            trigger,
+            config_dir,
+        } => {
+            let dir = expand_path(&config_dir);
+            let configs = cli_expander_config::Config::load_dir(&dir)?;
+            let records = TriggerRecord::from_configs(&configs);
+
+            if let Some(r) = records.iter().find(|r| r.trigger == trigger) {
+                println!("Trigger:    {}", r.trigger);
+                println!("Description: {}", r.description);
+                println!("Category:   {}", r.category);
+                println!("Type:       {}", r.trigger_type);
+                println!("Tags:       {}", r.tags);
+                println!("Source:     {}", r.source_file);
+            } else {
+                eprintln!("Trigger '{}' not found", trigger);
+                std::process::exit(1);
             }
         }
 

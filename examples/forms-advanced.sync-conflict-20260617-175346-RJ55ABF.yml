@@ -1,0 +1,440 @@
+matches:
+  # 1. Simple text field
+  - trigger: ":name"
+    form: "Your name: [[name]]"
+    form_fields:
+      name:
+        placeholder: "Enter your full name"
+        default: "John Doe"
+
+  # 2. Multi-line text area
+  - trigger: ":note"
+    form: |
+      Notes:
+      [[notes]]
+    form_fields:
+      notes:
+        multiline: true
+        placeholder: "Type your notes here..."
+
+  # 3. Choice dropdown
+  - trigger: ":priority"
+    form: "Set priority to: [[level]]"
+    form_fields:
+      level:
+        type: choice
+        values:
+          - Low
+          - Medium
+          - High
+          - Critical
+
+  # 4. Multi-field form (text + choice + multiline)
+  - trigger: ":ticket"
+    form: |
+      Title: [[title]]
+      Type: [[type]]
+      Description:
+      [[desc]]
+    form_fields:
+      title:
+        placeholder: "Ticket title"
+      type:
+        type: choice
+        values:
+          - Bug
+          - Feature
+          - Improvement
+          - Task
+      desc:
+        multiline: true
+        placeholder: "Describe the issue..."
+
+  # 5. Form with defaults
+  - trigger: ":meeting"
+    replace: "Meeting: {{form.topic}} at {{form.time}} on {{form.date}}"
+    vars:
+      - name: date
+        type: date
+        params:
+          format: "%Y-%m-%d"
+      - name: form
+        type: form
+        params:
+          layout: |
+            Topic: [[topic]]
+            Time: [[time]]
+            Date: [[date]]
+          fields:
+            topic:
+              placeholder: "Meeting topic"
+            time:
+              default: "14:00"
+              placeholder: "HH:MM"
+            date:
+              default: "{{date}}"
+
+  # 6. Multiple choice fields
+  - trigger: ":config"
+    form: |
+      Environment: [[env]]
+      Region: [[region]]
+      Log Level: [[loglevel]]
+    form_fields:
+      env:
+        type: choice
+        values:
+          - Development
+          - Staging
+          - Production
+      region:
+        type: choice
+        default: "us-east-1"
+        values:
+          - us-east-1
+          - us-west-2
+          - eu-west-1
+          - ap-southeast-1
+      loglevel:
+        type: choice
+        values:
+          - DEBUG
+          - INFO
+          - WARN
+          - ERROR
+
+  # 7. Form with clipboard default
+  - trigger: ":review"
+    replace: |
+      Reviewed by: Donny
+      Date: {{date}}
+      Notes: {{form.notes}}
+      Content:
+      {{form.content}}
+    vars:
+      - name: clip
+        type: clipboard
+      - name: date
+        type: date
+        params:
+          format: "%Y-%m-%d"
+      - name: form
+        type: form
+        params:
+          layout: |
+            Notes: [[notes]]
+            Content:
+            [[content]]
+          fields:
+            notes:
+              placeholder: "Add your review notes"
+            content:
+              multiline: true
+              default: "{{clip}}"
+
+  # 8. Form with list box (scrollable list)
+  - trigger: ":select"
+    form: "Select a file: [[file]]"
+    form_fields:
+      file:
+        type: list
+        values:
+          - report-q1-2026.pdf
+          - meeting-notes-june.md
+          - budget-proposal.xlsx
+          - architecture-diagram.png
+          - deployment-guide-v2.pdf
+          - api-specification.yaml
+          - server-logs-june.tar.gz
+
+  # 9. Complex form with all field types
+  - trigger: ":profile"
+    form: |
+      === User Profile ===
+      Name: [[name]]
+      Role: [[role]]
+      Department: [[dept]]
+      Bio:
+      [[bio]]
+    form_fields:
+      name:
+        placeholder: "Full name"
+        default: "Jane Smith"
+      role:
+        type: choice
+        values:
+          - Developer
+          - Designer
+          - Manager
+          - DevOps
+          - QA
+      dept:
+        type: choice
+        default: "Engineering"
+        values:
+          - Engineering
+          - Design
+          - Marketing
+          - Sales
+          - HR
+      bio:
+        multiline: true
+        placeholder: "Short biography..."
+
+  # 10. Minimal inline form for quick tasks
+  - trigger: ":quick"
+    form: "Run command: [[cmd]]"
+    form_fields:
+      cmd:
+        placeholder: "e.g. docker compose up -d"
+        default: "ls -la"
+
+  # 11. Bonus: Search/disambiguation — multiple triggers same prefix
+  - trigger: ":emoji"
+    replace: "😊"
+  - trigger: ":emoji"
+    replace: "🔥"
+  - trigger: ":emoji"
+    replace: "🎉"
+
+  # Find command builder
+  - trigger: ":findx"
+    replace: "find {{path}} {{type}} -name '*.[[ext]]' -exec {{exec}} {} +"
+    vars:
+      - name: form
+        type: form
+        params:
+          layout: |
+            Search Path: [[path]]
+            File Type: [[type]]
+            Extension: [[ext]]
+            Action: [[exec]]
+          fields:
+            path:
+              default: "."
+              placeholder: "e.g. /home or ."
+            type:
+              type: choice
+              values:
+                - ""
+                - "-type f"
+                - "-type d"
+                - "-type l"
+            ext:
+              default: "sh"
+              placeholder: "file extension"
+            exec:
+              default: "ls -lh"
+              placeholder: "e.g. rm or chmod"
+
+  # Cascading find command builder
+  - trigger: ":findmenu"
+    replace: "find {{path}} {{predicate}} {{action}}"
+    vars:
+      - name: form
+        type: form
+        params:
+          layout: |
+            Path: [[path]]
+            Use case: [[usecase]]
+            Predicate: [[predicate]]
+            Action: [[action]]
+          fields:
+            path:
+              default: "."
+            usecase:
+              type: choice
+              values:
+                - By name
+                - By size
+                - By modified time
+                - By permissions
+                - Cleanup
+            predicate:
+              type: choice
+              depends_on: usecase
+              values:
+                By name:
+                  - "-type f -name '*.log'"
+                  - "-type f -name '*.sh'"
+                  - "-type d -name 'node_modules'"
+                By size:
+                  - "-type f -size +100M"
+                  - "-type f -size +1G"
+                  - "-type f -size -1M"
+                By modified time:
+                  - "-type f -mtime -1"
+                  - "-type f -mtime -7"
+                  - "-type f -mtime +30"
+                By permissions:
+                  - "-type f -perm /u=x"
+                  - "-type f -perm /g=w"
+                  - "-type f -perm 0777"
+                Cleanup:
+                  - "-type f -name '*.tmp'"
+                  - "-type f -empty"
+                  - "-type d -empty"
+            action:
+              type: choice
+              values:
+                - "-print"
+                - "-ls"
+                - "-delete"
+                - "-exec ls -lh {} \\;"
+
+  # Find by name with manual name/action inputs
+  - trigger: ":findname"
+    replace: "find {{path}} {{type}} -name '{{name}}' {{action}}"
+    vars:
+      - name: form
+        type: form
+        params:
+          layout: |
+            Path: [[path]]
+            Type: [[type]]
+            Name: [[name]]
+            Action: [[action]]
+          fields:
+            path:
+              default: "."
+            type:
+              type: choice
+              values:
+                - "-type f"
+                - "-type d"
+                - "-type l"
+                - "-type f -executable"
+            name:
+              default: "*"
+              placeholder: "*.log"
+            action:
+              default: "-print"
+              placeholder: "-print, -ls, -delete, -exec ls -lh {} \\;"
+
+  # Demonstrates every available form field type
+  - trigger: ":formdemo"
+    replace: |
+      text={{text}}
+      choice={{choice}}
+      list={{list}}
+      multiline={{multiline}}
+      checkbox={{confirm}}
+      password={{secret}}
+      cascade_parent={{category}}
+      cascade_child={{item}}
+    vars:
+      - name: form
+        type: form
+        params:
+          layout: |
+            Text input: [[text]]
+            Choice dropdown: [[choice]]
+            List dropdown: [[list]]
+            Multiline text: [[multiline]]
+            Checkbox: [[confirm]]
+            Password: [[secret]]
+            Cascade parent: [[category]]
+            Cascade child: [[item]]
+          fields:
+            text:
+              default: "hello world"
+              placeholder: "single-line text"
+            choice:
+              type: choice
+              values:
+                - Alpha
+                - Beta
+                - Gamma
+            list:
+              type: list
+              values:
+                - report.pdf
+                - notes.md
+                - script.sh
+                - image.png
+                - archive.tar.gz
+            multiline:
+              multiline: true
+              default: "line one\nline two"
+              placeholder: "multi-line text"
+            confirm:
+              type: checkbox
+              default: "true"
+            secret:
+              type: password
+              default: "demo-secret"
+              placeholder: "hidden input"
+            category:
+              type: choice
+              values:
+                - Fruits
+                - Animals
+                - Colors
+            item:
+              type: choice
+              depends_on: category
+              values:
+                Fruits:
+                  - Apple
+                  - Banana
+                  - Cherry
+                Animals:
+                  - Cat
+                  - Dog
+                  - Fox
+                Colors:
+                  - Red
+                  - Green
+                  - Blue
+
+  # Cascading dropdown — selecting parent changes child options
+  - trigger: ":cascade"
+    replace: "Selected {{cat}}: {{item}}"
+    vars:
+      - name: form
+        type: form
+        params:
+          layout: |
+            Category: [[cat]]
+            Item: [[item]]
+          fields:
+            cat:
+              type: choice
+              values:
+                - Fruits
+                - Animals
+                - Colors
+            item:
+              type: choice
+              depends_on: cat
+              values:
+                Fruits: [Apple, Banana, Cherry, Durian]
+                Animals: [Cat, Dog, Elephant, Fox]
+                Colors: [Red, Green, Blue, Yellow]
+
+  # Non-cascading version for comparison
+  - trigger: ":cascade2"
+    replace: "Selected {{cat}}: {{item}}"
+    vars:
+      - name: form
+        type: form
+        params:
+          layout: |
+            Category: [[cat]]
+            Item: [[item]]
+          fields:
+            cat:
+              type: choice
+              values:
+                - Fruits
+                - Animals
+                - Colors
+            item:
+              type: choice
+              values:
+                - Apple
+                - Banana
+                - Cat
+                - Dog
+                - Red
+                - Green
