@@ -504,9 +504,8 @@ fn render_cursive_form(title: &str, fields: &[FormField]) -> anyhow::Result<Opti
 
     siv.set_fps(30);
 
-    siv.add_global_callback(Key::Esc, |s| {
-        s.quit();
-    });
+    // Don't bind Esc globally — it interferes with tmux paste (Esc byte triggers quit)
+    // User can cancel via the Cancel button or Ctrl+Z
 
     siv.run();
 

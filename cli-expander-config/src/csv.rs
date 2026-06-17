@@ -43,7 +43,7 @@ impl TriggerRecord {
                     };
 
                     let description = m.search_label.as_deref()
-                        .map(|s| sanitize_description(s))
+                        .map(sanitize_description)
                         .or_else(|| {
                             if m.has_form() {
                                 let field_count = m.form_fields.as_ref().map(|f| f.len()).unwrap_or(0);
