@@ -314,8 +314,7 @@ fn main() -> anyhow::Result<()> {
                 .filter(|r| {
                     r.trigger.to_lowercase().contains(&q)
                         || r.description.to_lowercase().contains(&q)
-                        || r.category.to_lowercase().contains(&q)
-                        || r.tags.to_lowercase().contains(&q)
+                    || r.category.to_lowercase().contains(&q)
                 })
                 .collect();
 
@@ -348,7 +347,6 @@ fn main() -> anyhow::Result<()> {
                 println!("Description: {}", r.description);
                 println!("Category:   {}", r.category);
                 println!("Type:       {}", r.trigger_type);
-                println!("Tags:       {}", r.tags);
                 println!("Source:     {}", r.source_file);
             } else {
                 eprintln!("Trigger '{}' not found", trigger);

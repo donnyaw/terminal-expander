@@ -9,7 +9,6 @@ pub struct TriggerRecord {
     pub category: String,
     #[serde(rename = "type")]
     pub trigger_type: String,
-    pub tags: String,
     pub source_file: String,
 }
 
@@ -75,8 +74,6 @@ impl TriggerRecord {
                         })
                         .unwrap_or_default();
 
-                    let tags = extract_tags(trigger, &description);
-
                     let trigger_type = if m.has_form() {
                         "form".to_string()
                     } else if let Some(ref vars) = m.vars {
@@ -94,7 +91,6 @@ impl TriggerRecord {
                         description,
                         category: source.clone(),
                         trigger_type,
-                        tags,
                         source_file: source.clone(),
                     });
                 }
@@ -106,10 +102,9 @@ impl TriggerRecord {
 
     pub fn to_csv_string(&self) -> String {
         let desc = self.description.replace('"', "\"\"");
-        let tags = self.tags.replace('"', "\"\"");
         format!(
-            "{},\"{}\",{},{},\"{}\",{}",
-            self.trigger, desc, self.category, self.trigger_type, tags, self.source_file
+            "{},\"{}\",{},{},{}",
+            self.trigger, desc, self.category, self.trigger_type, self.source_file
         )
     }
 
@@ -119,14 +114,13 @@ impl TriggerRecord {
             "description": self.description,
             "category": self.category,
             "type": self.trigger_type,
-            "tags": self.tags,
             "source_file": self.source_file,
         })
     }
 }
 
 pub fn records_to_csv(records: &[TriggerRecord]) -> String {
-    let mut out = String::from("trigger,description,category,type,tags,source_file\n");
+    let mut out = String::from("trigger,description,category,type,source_file\n");
     for r in records {
         out.push_str(&r.to_csv_string());
         out.push('\n');
@@ -242,29 +236,6 @@ fn sanitize_description(s: &str) -> String {
     }
 }
 
-fn extract_tags(trigger: &str, description: &str) -> String {
-    let mut tags: Vec<String> = Vec::new();
-
-    // Extract prefix from trigger (e.g., "find" from ":findx")
-    if let Some(prefix) = trigger.strip_prefix(':') {
-        let prefix = prefix.trim_end_matches(|c: char| c.is_ascii_punctuation());
-        if !prefix.is_empty() {
-            tags.push(prefix.to_string());
-        }
-    }
-
-    // Extract keywords from description
-    for word in description.split(|c: char| c.is_whitespace() || c == ',' || c == '.') {
-        let word = word.trim().to_lowercase();
-        if word.len() >= 3 && !tags.contains(&word) {
-            tags.push(word);
-        }
-    }
-
-    tags.truncate(8); // limit to 8 tags
-    tags.join(", ")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -283,7 +254,6 @@ mod tests {
             description: "A test with \"quotes\"".to_string(),
             category: "test".to_string(),
             trigger_type: "text".to_string(),
-            tags: "test, demo".to_string(),
             source_file: "test.yml".to_string(),
         };
         let csv = r.to_csv_string();
@@ -298,7 +268,6 @@ mod tests {
                 description: "Hello!".to_string(),
                 category: "base".to_string(),
                 trigger_type: "text".to_string(),
-                tags: "hello".to_string(),
                 source_file: "base.yml".to_string(),
             },
         ];
@@ -308,18 +277,11 @@ mod tests {
                 description: "Manual one".to_string(),
                 category: "custom".to_string(),
                 trigger_type: "text".to_string(),
-                tags: "manual".to_string(),
                 source_file: "manual:2026-06-15".to_string(),
             },
         ];
         let merged = merge_records(auto, existing);
         assert!(merged.iter().any(|r| r.trigger == ":manual-trigger"));
         assert!(merged.iter().any(|r| r.trigger == ":hello"));
-    }
-
-    #[test]
-    fn test_extract_tags() {
-        let tags = extract_tags(":findx", "Build find command with options");
-        assert!(tags.contains("find"));
     }
 }
