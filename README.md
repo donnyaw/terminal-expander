@@ -83,24 +83,7 @@ Press `/` when focused on a Choice or List field. A search dialog opens with liv
 ```
 
 ### Cascade / Dependent Dropdowns
-Child dropdown options update dynamically when the parent selection changes.
-```yaml
-- trigger: ":cascade"
-  vars:
-    - name: form
-      type: form
-      params:
-        fields:
-          cat:
-            type: choice
-            values: [Fruits, Animals]
-          item:
-            type: choice
-            depends_on: cat
-            values:
-              Fruits: [Apple, Banana, Cherry]
-              Animals: [Cat, Dog, Elephant]
-```
+Child dropdown options update dynamically when the parent selection changes. Defined via `depends_on` in the YAML config.
 
 ### Portable CSV Trigger Database
 All triggers are indexed in `~/.config/cli-expander/triggers.csv`. Auto-generated from YAML match files, with manual row preservation.
@@ -194,63 +177,6 @@ cli-expander/           ← Rust workspace (7 crates)
 ├── cli-expander-inject/← Text injection (uinput, tmux, clipboard)
 └── shell/              ← Bash/Zsh/Fish plugins
     └── cli-expander.bash
-```
-
----
-
-## Configuration
-
-Match files use Espanso-compatible YAML format:
-
-```yaml
-matches:
-  # Simple text replacement
-  - trigger: ":hello"
-    replace: "Hello World!"
-
-  # Multi-line replacement
-  - trigger: ":sig"
-    replace: |
-      Best regards,
-      John
-
-  # Date variable
-  - trigger: ":date"
-    replace: "{{now}}"
-    vars:
-      - name: now
-        type: date
-        params:
-          format: "%Y-%m-%d"
-
-  # Form with choice dropdown
-  - trigger: ":priority"
-    form: "Priority: [[level]]"
-    form_fields:
-      level:
-        type: choice
-        values: [Low, Medium, High, Critical]
-
-  # Verbose form with cascade
-  - trigger: ":cascade"
-    replace: "Selected {{cat}}: {{item}}"
-    vars:
-      - name: form
-        type: form
-        params:
-          layout: |
-            Category: [[cat]]
-            Item: [[item]]
-          fields:
-            cat:
-              type: choice
-              values: [Fruits, Animals]
-            item:
-              type: choice
-              depends_on: cat
-              values:
-                Fruits: [Apple, Banana]
-                Animals: [Cat, Dog]
 ```
 
 ---
