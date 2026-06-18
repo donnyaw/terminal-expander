@@ -1,0 +1,71 @@
+matches:
+  - trigger: ":ai-plan"
+    search_label: "Create a concise implementation plan before coding"
+    replace: |
+      Create a concise implementation plan for this task.
+
+      Include:
+      - goal and scope
+      - files or systems to inspect
+      - implementation steps
+      - verification steps
+      - risks and rollback notes
+
+      Do not edit files until the plan is clear.
+
+  - trigger: ":ai-review"
+    search_label: "Review code for bugs, regressions, risks, and missing tests"
+    replace: |
+      Review the current code change with a code-review mindset.
+
+      Prioritize findings in this order:
+      - behavioral bugs
+      - regressions
+      - security or data-loss risks
+      - missing tests
+
+      Return findings first, ordered by severity, with file and line references.
+      Keep summaries brief and only after findings.
+
+  - trigger: ":ai-debug"
+    search_label: "Diagnose a bug from symptoms, logs, and reproducible steps"
+    replace: |
+      Diagnose this bug systematically.
+
+      Work through:
+      - observed behavior
+      - expected behavior
+      - reproduction steps
+      - likely code paths
+      - smallest useful experiment
+      - proposed fix and verification
+
+      Avoid broad rewrites unless the evidence requires them.
+
+  - trigger: ":ai-docs"
+    search_label: "Write practical user or developer documentation"
+    replace: |
+      Write clear, practical documentation for this feature.
+
+      Include:
+      - what it does
+      - when to use it
+      - setup or configuration
+      - examples
+      - limitations and troubleshooting
+
+      Prefer concise headings and copy-pasteable commands.
+
+  - trigger: ":ai-refactor"
+    search_label: "Plan a low-risk refactor with tests and migration notes"
+    replace: |
+      Plan a low-risk refactor for this area.
+
+      Cover:
+      - current coupling or pain points
+      - smallest safe refactor steps
+      - behavior that must not change
+      - tests to protect the refactor
+      - rollout and rollback notes
+
+      Prefer incremental changes over a large rewrite.
