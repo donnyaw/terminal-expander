@@ -1,5 +1,8 @@
 # OpenCode Prompt Commands
 
+> Status: canceled. This OpenCode integration branch is no longer being developed.
+> Future prompt expansion work should use Espanso instead.
+
 This integration uses cli-expander as an AI prompt registry for OpenCode.
 
 ## What It Does

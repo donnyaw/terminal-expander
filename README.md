@@ -76,6 +76,9 @@ Zsh and Fish currently support expansion keybindings, but their checked-in plugi
 
 ### OpenCode Prompt Commands
 
+Status: canceled. The OpenCode integration branch is no longer being developed;
+future prompt expansion work should use Espanso instead.
+
 cli-expander can also act as an AI prompt registry for OpenCode. Store prompt
 matches under `~/.config/cli-expander/matches/ai-prompts/`, then install the
 OpenCode command files from `integrations/opencode/commands/`.
