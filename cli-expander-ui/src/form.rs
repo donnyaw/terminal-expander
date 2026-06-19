@@ -432,13 +432,27 @@ fn render_cursive_form(title: &str, fields: &[FormField]) -> anyhow::Result<Opti
                     let ph_content = ph.clone();
                     let ph_match = ph.clone();
                     let fname = name.clone();
-                    edit = edit.on_edit(move |s, content, _cursor| {
-                        // If user typed on top of placeholder, extract just the typed part
-                        if content.len() > ph_match.len() && content.starts_with(&ph_match) {
-                            let typed = content[ph_match.len()..].to_string();
-                            let _ = s.call_on_name(&fname, |v: &mut EditView| {
-                                v.set_content(&typed);
-                            });
+                    edit = edit.on_edit(move |s, content, cursor| {
+                        let plen = ph_match.len();
+                        let clen = content.len();
+                        // Only clear placeholder if content grew (user typed something)
+                        if clen > plen {
+                            // Cursor at start → user typed BEFORE placeholder
+                            // content = "typed_char" + placeholder
+                            if content.ends_with(&ph_match) && cursor <= clen - plen {
+                                let typed = content[..clen - plen].to_string();
+                                let _ = s.call_on_name(&fname, |v: &mut EditView| {
+                                    v.set_content(&typed);
+                                });
+                            }
+                            // Cursor at end → user typed AFTER placeholder
+                            // content = placeholder + "typed_char"
+                            else if content.starts_with(&ph_match) && cursor >= plen {
+                                let typed = content[plen..].to_string();
+                                let _ = s.call_on_name(&fname, |v: &mut EditView| {
+                                    v.set_content(&typed);
+                                });
+                            }
                         }
                     });
                     // Pre-fill with placeholder
