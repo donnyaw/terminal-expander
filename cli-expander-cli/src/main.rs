@@ -1,7 +1,8 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use cli_expander_config::TriggerRecord;
 use cli_expander_config::{merge_records, read_csv_file, write_csv_file};
 use cli_expander_config::{records_to_csv, records_to_json};
+use cli_expander_inject::{ClipboardInjector, Injector, TmuxInjector};
 use cli_expander_ui::FormRenderer;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -31,6 +32,14 @@ struct Cli {
     command: Option<Commands>,
 }
 
+#[derive(Clone, Debug, ValueEnum)]
+enum OutputMode {
+    Stdout,
+    Tmux,
+    Auto,
+    Clipboard,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Expand a trigger string and output the result
@@ -41,6 +50,10 @@ enum Commands {
         /// Path to match files directory
         #[arg(short, long, default_value = "~/.config/cli-expander/matches")]
         config_dir: String,
+
+        /// Where to send expanded text
+        #[arg(long, value_enum, default_value_t = OutputMode::Stdout)]
+        output: OutputMode,
     },
 
     /// List all available triggers
@@ -122,6 +135,7 @@ fn main() -> anyhow::Result<()> {
         Some(Commands::Expand {
             input: Some(input),
             config_dir,
+            output: OutputMode::Stdout,
         })
     } else {
         cli.command
@@ -132,13 +146,17 @@ fn main() -> anyhow::Result<()> {
         let _ = Cli::parse_from(["cli-expander", "--help"]);
         std::process::exit(0);
     }) {
-        Commands::Expand { input, config_dir } => {
+        Commands::Expand {
+            input,
+            config_dir,
+            output,
+        } => {
             let input = input.unwrap_or_else(|| {
                 eprintln!("error: no input provided for expansion");
                 std::process::exit(1);
             });
             match expand_input(&input, &config_dir) {
-                Ok(output) => println!("{}", output),
+                Ok(expanded) => emit_output(&expanded, output)?,
                 Err(e) => {
                     eprintln!("{}", e);
                     std::process::exit(1);
@@ -405,6 +423,25 @@ fn expand_input(input: &str, config_dir: &str) -> anyhow::Result<String> {
     Err(anyhow::anyhow!(
         "Matched trigger has no replace or form output"
     ))
+}
+
+fn emit_output(text: &str, mode: OutputMode) -> anyhow::Result<()> {
+    match mode {
+        OutputMode::Stdout => {
+            println!("{}", text);
+            Ok(())
+        }
+        OutputMode::Tmux => TmuxInjector.inject(text),
+        OutputMode::Auto => {
+            if std::env::var_os("TMUX").is_some() {
+                TmuxInjector.inject(text)
+            } else {
+                println!("{}", text);
+                Ok(())
+            }
+        }
+        OutputMode::Clipboard => ClipboardInjector.inject(text),
+    }
 }
 
 #[allow(dead_code)]

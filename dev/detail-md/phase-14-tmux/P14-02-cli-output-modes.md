@@ -4,6 +4,10 @@
 
 Add a user-facing output selector to `ce expand` so expanded text can go to stdout, tmux, auto mode, or clipboard.
 
+## Implementation Status
+
+Completed on branch `feature/tmux-integration` with tag `p14-02`.
+
 ## Why This Exists
 
 The shell plugins currently depend on stdout. Tmux needs direct pane injection. Clipboard is already implemented as a fallback option. A single `--output` flag makes output behavior explicit while keeping existing behavior safe.
