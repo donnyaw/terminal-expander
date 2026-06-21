@@ -4,6 +4,10 @@
 
 Allow tmux output mode to inject into a specific tmux pane using a `--target-pane` option.
 
+## Implementation Status
+
+Completed on branch `feature/tmux-integration` with tag `p14-03`.
+
 ## Why This Exists
 
 When a tmux popup or helper script runs, the current active pane may no longer be the user's original selected pane. The integration must explicitly target the pane that had focus before the popup opened.

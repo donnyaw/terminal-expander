@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use cli_expander_config::TriggerRecord;
 use cli_expander_config::{merge_records, read_csv_file, write_csv_file};
 use cli_expander_config::{records_to_csv, records_to_json};
-use cli_expander_inject::{ClipboardInjector, Injector, TmuxInjector};
+use cli_expander_inject::{ClipboardInjector, Injector, TmuxInjectOptions, TmuxInjector};
 use cli_expander_ui::FormRenderer;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -54,6 +54,10 @@ enum Commands {
         /// Where to send expanded text
         #[arg(long, value_enum, default_value_t = OutputMode::Stdout)]
         output: OutputMode,
+
+        /// Tmux target pane for tmux output mode
+        #[arg(long)]
+        target_pane: Option<String>,
     },
 
     /// List all available triggers
@@ -136,6 +140,7 @@ fn main() -> anyhow::Result<()> {
             input: Some(input),
             config_dir,
             output: OutputMode::Stdout,
+            target_pane: None,
         })
     } else {
         cli.command
@@ -150,13 +155,14 @@ fn main() -> anyhow::Result<()> {
             input,
             config_dir,
             output,
+            target_pane,
         } => {
             let input = input.unwrap_or_else(|| {
                 eprintln!("error: no input provided for expansion");
                 std::process::exit(1);
             });
             match expand_input(&input, &config_dir) {
-                Ok(expanded) => emit_output(&expanded, output)?,
+                Ok(expanded) => emit_output(&expanded, output, target_pane.as_deref())?,
                 Err(e) => {
                     eprintln!("{}", e);
                     std::process::exit(1);
@@ -425,16 +431,26 @@ fn expand_input(input: &str, config_dir: &str) -> anyhow::Result<String> {
     ))
 }
 
-fn emit_output(text: &str, mode: OutputMode) -> anyhow::Result<()> {
+fn emit_output(text: &str, mode: OutputMode, target_pane: Option<&str>) -> anyhow::Result<()> {
     match mode {
         OutputMode::Stdout => {
             println!("{}", text);
             Ok(())
         }
-        OutputMode::Tmux => TmuxInjector.inject(text),
+        OutputMode::Tmux => TmuxInjector.inject_with_options(
+            text,
+            &TmuxInjectOptions {
+                target_pane: target_pane.map(String::from),
+            },
+        ),
         OutputMode::Auto => {
             if std::env::var_os("TMUX").is_some() {
-                TmuxInjector.inject(text)
+                TmuxInjector.inject_with_options(
+                    text,
+                    &TmuxInjectOptions {
+                        target_pane: target_pane.map(String::from),
+                    },
+                )
             } else {
                 println!("{}", text);
                 Ok(())

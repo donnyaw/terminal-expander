@@ -50,16 +50,36 @@ impl Injector for UinputInjector {
 
 pub struct TmuxInjector;
 
-impl Injector for TmuxInjector {
-    fn inject(&self, text: &str) -> anyhow::Result<()> {
+#[derive(Debug, Clone, Default)]
+pub struct TmuxInjectOptions {
+    pub target_pane: Option<String>,
+}
+
+impl TmuxInjector {
+    pub fn inject_with_options(
+        &self,
+        text: &str,
+        options: &TmuxInjectOptions,
+    ) -> anyhow::Result<()> {
+        let args = tmux_send_keys_args(text, options.target_pane.as_deref())?;
         let output = std::process::Command::new("tmux")
-            .args(["send-keys", "-l", text])
+            .args(args)
             .output()
             .map_err(|e| anyhow::anyhow!("tmux send-keys failed: {}", e))?;
         if !output.status.success() {
-            anyhow::bail!("tmux send-keys exited with error");
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            if stderr.is_empty() {
+                anyhow::bail!("tmux send-keys exited with error");
+            }
+            anyhow::bail!("tmux send-keys exited with error: {}", stderr);
         }
         Ok(())
+    }
+}
+
+impl Injector for TmuxInjector {
+    fn inject(&self, text: &str) -> anyhow::Result<()> {
+        self.inject_with_options(text, &TmuxInjectOptions::default())
     }
 
     fn method(&self) -> InjectionMethod {
@@ -91,6 +111,20 @@ fn which(name: &str) -> bool {
         .is_ok_and(|o| o.status.success())
 }
 
+pub fn tmux_send_keys_args(text: &str, target_pane: Option<&str>) -> anyhow::Result<Vec<String>> {
+    let mut args = vec!["send-keys".to_string()];
+    if let Some(target) = target_pane {
+        if target.is_empty() {
+            anyhow::bail!("tmux target pane cannot be empty");
+        }
+        args.push("-t".to_string());
+        args.push(target.to_string());
+    }
+    args.push("-l".to_string());
+    args.push(text.to_string());
+    Ok(args)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,5 +143,23 @@ mod tests {
     fn test_injection_method_display() {
         assert_eq!(format!("{:?}", InjectionMethod::Uinput), "Uinput");
         assert_eq!(format!("{:?}", InjectionMethod::Clipboard), "Clipboard");
+    }
+
+    #[test]
+    fn test_tmux_send_keys_args_without_target() {
+        let args = tmux_send_keys_args("hello", None).unwrap();
+        assert_eq!(args, vec!["send-keys", "-l", "hello"]);
+    }
+
+    #[test]
+    fn test_tmux_send_keys_args_with_target() {
+        let args = tmux_send_keys_args("hello", Some("%1")).unwrap();
+        assert_eq!(args, vec!["send-keys", "-t", "%1", "-l", "hello"]);
+    }
+
+    #[test]
+    fn test_tmux_send_keys_args_rejects_empty_target() {
+        let err = tmux_send_keys_args("hello", Some("")).unwrap_err();
+        assert!(err.to_string().contains("target pane cannot be empty"));
     }
 }
